@@ -116,7 +116,7 @@ class DATA:
             if algo == 'split':
                 list_6.append(f"6: top: {best.row[0].cells[len(best.row[0].cells) - 3:]}")
                 bests.append(best.row[0])
-            elif algo == 'kmeans':
+            elif algo == 'algometric_clustering':
                 list_6.append(f"6: top: {top.cells[len(top.cells) - 3:]}")
                 bests.append(top)
 
