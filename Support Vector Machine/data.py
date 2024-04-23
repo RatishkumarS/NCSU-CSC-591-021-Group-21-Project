@@ -80,12 +80,12 @@ class DATA:
         # shuffling the rows
         rows = random.sample(self.row, len(self.row))
         # list_1.append(1)
-        list_1.append(f"1. top6:{[r.cells[len(r.cells) - 3:] for r in rows[:6]]}")
-        list_2.append(f"2. top50:{[[r.cells[len(r.cells) - 3:] for r in rows[:50]]]}")
+        list_1.append(f"1. top6:{[r.cells[len(r.cells) - 4:] for r in rows[:6]]}")
+        list_2.append(f"2. top50:{[[r.cells[len(r.cells) - 4:] for r in rows[:50]]]}")
 
         # sorting rows based on d2h
         rows.sort(key=lambda r: r.d2h(self))
-        list_3.append(f"3. most: {rows[0].cells[len(rows[0].cells) - 3:]}")
+        list_3.append(f"3. most: {rows[0].cells[len(rows[0].cells) - 4:]}")
 
         # shuffling rows again
         rows = random.sample(self.row, len(self.row))
@@ -95,47 +95,73 @@ class DATA:
         dark = rows[budget0:]  # test-data
 
         stats, bests = [], []
+        first_rows = []
+        mean_values = []
+        d2h_values = []
+        all_statistics = []
 
-        for i in range(budget):
+        for i in range(20):
             if algo == 'split':
                 best, rest = self.best_rest(lite, len(lite) ** some)  
                 todo, selected = self.split(best, rest, lite, dark)
             elif algo == 'svm':
                 todo, selected, top = self.svm(lite, dark)
+
+            first_row = selected.row[0] if selected.row else None
+            first_rows.append(first_row)
+            mean_mid = selected.mid().cells[len(selected.mid().cells) - 2:]
+            all_statistics.append(mean_mid)
+            d2h_value = first_row.d2h(self)
+            d2h_values.append(d2h_value)
             
             selected_rows_rand = random.sample(dark, budget0 + i)
             y_values_rand = []
             for row in selected_rows_rand:
                 y_val = list(map(coerce, row.cells[-3:]))
                 y_values_rand.append(y_val)
-
+            
             if(file[8].startswith('x')):
                 y_values_flat = [value for sublist in y_values_rand for value in sublist]
                 y_values_float = [float(value) for value in y_values_flat]
             
-            list_4.append(f"4: rand:{np.mean(np.array(y_values_rand), axis=0)}")
-            list_5.append(f"5: mid: {selected.mid().cells[len(selected.mid().cells) - 3:]}")
+                list_4.append(f"4: rand:{np.mean(np.array(y_values_float), axis=0)}")
+            
+            list_5.append(f"5: mid: {selected.mid().cells[len(selected.mid().cells) - 4:]}")
             stats.append(selected.mid())
             lite.append(dark.pop(todo))
             
             if algo == 'split':
-                list_6.append(f"6: top: {best.row[0].cells[len(best.row[0].cells) - 3:]}")
+                list_6.append(f"6: top: {best.row[0].cells[len(best.row[0].cells) - 4:]}")
                 bests.append(best.row[0])
             elif algo == 'kMeans':
-                list_6.append(f"6: top: {top.cells[len(top.cells) - 3:]}")
+                list_6.append(f"6: top: {top.cells[len(top.cells) - 4:]}")
                 bests.append(top)
 
-        print('\n'.join(map(str, list_1)))
-        print('\n'.join(map(str, list_2)))
-        print('\n'.join(map(str, list_3)))
-        print('\n'.join(map(str, list_4)))
-        print('\n'.join(map(str, list_5)))
-        print('\n'.join(map(str, list_6)))
-        end=time.time()
-        temp=end-start
-        print(f"Time Taken to run SVM on the dataset = {temp}")
+        # print('\n'.join(map(str, list_1)))
+        # print('\n'.join(map(str, list_2)))
+        # print('\n'.join(map(str, list_3)))
+        # print('\n'.join(map(str, list_4)))
+        # print('\n'.join(map(str, list_5)))
+        # print('\n'.join(map(str, list_6)))
+        
+        all_statistics = np.array(all_statistics)
+        means = np.mean(all_statistics, axis=0)
+        std_devs = np.std(all_statistics, axis=0)
 
-        return stats, bests
+        # Calculate error bars (e.g., standard error)
+        error_bars = std_devs / np.sqrt(len(all_statistics))
+
+        # Print or return the aggregated statistics with error bars
+        print("Means with Error Bars:")
+        for idx, (mean, error) in enumerate(zip(means, error_bars)):
+            print(f"Feature {idx+1}: Mean={mean}, Error={error}")
+        
+        # for i, row_values in enumerate(first_rows):
+        #     print(f"Iteration {i+1}: {row_values.cells}")
+
+        # print(d2h_values)
+        
+        return stats, bests, means, std_devs
 
     def best_rest(self, rows, want):
         rows.sort(key=lambda r: r.d2h(self))

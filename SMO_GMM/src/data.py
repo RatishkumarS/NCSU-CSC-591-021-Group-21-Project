@@ -5,6 +5,7 @@ from cols import COLS
 from sklearn.mixture import GaussianMixture
 from helpers import *
 import csv
+import time
 
 # Filter out the specific warning
 warnings.filterwarnings("ignore", message="KMeans is known to have a memory leak on Windows with MKL")
@@ -64,6 +65,7 @@ class DATA:
         return u
 
     def gate(self, random_seed, budget0=4, budget=10, some=0.5):
+        start=time.time()
         random.seed(random_seed)
         list_1, list_2, list_3, list_4, list_5, list_6 = [], [], [], [], [], []
         print("['Cost-','Score-','Idle-']")
@@ -86,8 +88,12 @@ class DATA:
         dark = rows[budget0:]  # test-data
 
         stats, bests = [], []
+        first_rows = []
+        mean_values = []
+        d2h_values = []
+        all_statistics = []
 
-        for i in range(budget):
+        for i in range(20):
             best, rest = self.best_rest(lite, len(lite) ** some)
             todo, selected = self.split(best, rest, lite, dark)
 
@@ -97,6 +103,15 @@ class DATA:
                 y_val = list(map(coerce, row.cells[-3:]))
                 y_values_rand.append(y_val)
 
+            first_row = selected.row[0] if selected.row else None
+            first_rows.append(first_row)
+
+            mean_mid = selected.mid().cells[len(selected.mid().cells) - 2:]
+            all_statistics.append(mean_mid)
+
+            d2h_value = first_row.d2h(self)
+            d2h_values.append(d2h_value)
+
             list_4.append(f"4: rand:{np.mean(np.array(y_values_rand), axis=0)}")
             list_5.append(f"5: mid: {selected.mid().cells[len(selected.mid().cells) - 3:]}")
             list_6.append(f"6: top: {best.row[0].cells[len(best.row[0].cells) - 3:]}")
@@ -104,14 +119,31 @@ class DATA:
             bests.append(best.row[0])
             lite.append(dark.pop(todo))
 
-        print('\n'.join(map(str, list_1)))
-        print('\n'.join(map(str, list_2)))
-        print('\n'.join(map(str, list_3)))
-        print('\n'.join(map(str, list_4)))
-        print('\n'.join(map(str, list_5)))
-        print('\n'.join(map(str, list_6)))
+        # print('\n'.join(map(str, list_1)))
+        # print('\n'.join(map(str, list_2)))
+        # print('\n'.join(map(str, list_3)))
+        # print('\n'.join(map(str, list_4)))
+        # print('\n'.join(map(str, list_5)))
+        # print('\n'.join(map(str, list_6)))
+        
+        all_statistics = np.array(all_statistics)
+        means = np.mean(all_statistics, axis=0)
+        std_devs = np.std(all_statistics, axis=0)
 
-        return stats, bests
+        # Calculate error bars (e.g., standard error)
+        error_bars = std_devs / np.sqrt(len(all_statistics))
+
+        # Print or return the aggregated statistics with error bars
+        print("Means with Error Bars:")
+        for idx, (mean, error) in enumerate(zip(means, error_bars)):
+            print(f"Feature {idx+1}: Mean={mean}, Error={error}")
+
+        # print(d2h_values)
+        # end=time.time()
+        # temp=end-start
+        # print(f"Time Taken to run SMO-GMM on the dataset = {temp}")
+
+        return stats, bests, means, std_devs
 
     def best_rest(self, rows, want):
         rows.sort(key=lambda r: r.d2h(self))

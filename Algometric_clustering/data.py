@@ -11,6 +11,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from config import CONFIG
+import time
 
 class DATA:
     def __init__(self, src, fun=None):
@@ -66,6 +67,7 @@ class DATA:
         return u
 
     def gate(self, random_seed,file, budget0=4, budget=10, some=0.5, algo='algometric_clustering'):
+ 
         random.seed(random_seed)
         list_1, list_2, list_3, list_4, list_5, list_6 = [], [], [], [], [], []
         if(file[8]=='p'):
@@ -91,8 +93,12 @@ class DATA:
         dark = rows[budget0:]  # test-data
 
         stats, bests = [], []
+        first_rows = []
+        d2h_values = []
+        mean_values = []
+        all_statistics = []
 
-        for i in range(budget):
+        for i in range(20):
             if algo == 'split':
                 best, rest = self.best_rest(lite, len(lite) ** some)  
                 todo, selected = self.split(best, rest, lite, dark)
@@ -101,12 +107,23 @@ class DATA:
             
             selected_rows_rand = random.sample(dark, budget0 + i)
             y_values_rand = []
+            y_values_float = []
+
             for row in selected_rows_rand:
                 y_val = list(map(coerce, row.cells[-3:]))
                 y_values_rand.append(y_val)
             if(file[8].startswith('x')):
                 y_values_flat = [value for sublist in y_values_rand for value in sublist]
                 y_values_float = [float(value) for value in y_values_flat]
+            
+            first_row = selected.row[0] if selected.row else None
+            first_rows.append(first_row)
+
+            mean_mid = selected.mid().cells[len(selected.mid().cells) - 2:]
+            all_statistics.append(mean_mid)
+
+            d2h_value = first_row.d2h(self)
+            d2h_values.append(d2h_value)
             
             list_4.append(f"4: rand:{np.mean(np.array(y_values_float), axis=0)}")
             list_5.append(f"5: mid: {selected.mid().cells[len(selected.mid().cells) - 3:]}")
@@ -120,14 +137,31 @@ class DATA:
                 list_6.append(f"6: top: {top.cells[len(top.cells) - 3:]}")
                 bests.append(top)
 
-        print('\n'.join(map(str, list_1)))
-        print('\n'.join(map(str, list_2)))
-        print('\n'.join(map(str, list_3)))
-        print('\n'.join(map(str, list_4)))
-        print('\n'.join(map(str, list_5)))
-        print('\n'.join(map(str, list_6)))
+        # print('\n'.join(map(str, list_1)))
+        # print('\n'.join(map(str, list_2)))
+        # print('\n'.join(map(str, list_3)))
+        # print('\n'.join(map(str, list_4)))
+        # print('\n'.join(map(str, list_5)))
+        # print('\n'.join(map(str, list_6)))
 
-        return stats, bests
+        all_statistics = np.array(all_statistics)
+        means = np.mean(all_statistics, axis=0)
+        std_devs = np.std(all_statistics, axis=0)
+
+        # Calculate error bars (e.g., standard error)
+        error_bars = std_devs / np.sqrt(len(all_statistics))
+
+        # Print or return the aggregated statistics with error bars
+        print("Means with Error Bars:")
+        for idx, (mean, error) in enumerate(zip(means, error_bars)):
+            print(f"Feature {idx+1}: Mean={mean}, Error={error}")
+        
+        # for i, row_values in enumerate(first_rows):
+        #     print(f"Iteration {i+1}: {row_values.cells}")
+
+        # print(d2h_values)
+        
+        return stats, bests, means, std_devs
 
     def best_rest(self, rows, want):
         rows.sort(key=lambda r: r.d2h(self))
